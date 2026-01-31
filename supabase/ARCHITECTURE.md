@@ -348,3 +348,121 @@ If you later need Enterprise features:
 4. **SLA** → Enterprise plan includes SLA
 
 The architecture is designed to grow into Enterprise without redesign.
+
+---
+
+## SSOT / SoR Governance
+
+This section defines the authoritative boundaries between Supabase (SSOT) and Odoo (SoR).
+
+### Role Definitions
+
+| System | Role | Authoritative For |
+|--------|------|-------------------|
+| **Supabase** | Single Source of Truth (SSOT) | Platform state, analytics, AI, orchestration, secrets |
+| **Odoo** | System of Record (SoR) | Business transactions, accounting, HR, legal |
+
+### Data Ownership Rules
+
+**Odoo owns (System of Record):**
+- Financial records (invoices, bills, payments)
+- HR records (employees, contracts, payroll)
+- Inventory transactions and stock moves
+- CRM entities (customers, vendors, leads)
+- Sales and purchase orders
+- Accounting journal entries
+
+**Supabase owns (Single Source of Truth):**
+- Analytical projections and aggregations
+- Metrics, KPIs, dashboard data
+- AI embeddings, vectors, summaries
+- Cross-system orchestration state
+- Agent memory and context
+- Audit findings and recommendations
+- Platform metadata and telemetry
+
+### Write Patterns
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        WRITE PATTERNS                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────┐     ┌─────────────────┐     ┌──────────────────┐  │
+│  │ Frontend │────▶│ odoo-proxy Edge │────▶│      Odoo        │  │
+│  │ / Agent  │     │    Function     │     │ (System of       │  │
+│  └──────────┘     └─────────────────┘     │  Record)         │  │
+│       │                                    └──────────────────┘  │
+│       │                                                          │
+│       │           ┌─────────────────┐     ┌──────────────────┐  │
+│       └──────────▶│   Direct SQL    │────▶│    Supabase      │  │
+│                   │ (service_role)  │     │ (Analytics/AI)   │  │
+│                   └─────────────────┘     └──────────────────┘  │
+│                                                                  │
+│  ⚠️  NEVER: Direct SQL to Odoo, dblink, postgres_fdw writes    │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Secret Management
+
+All secrets must be stored in **Supabase Vault**:
+
+```sql
+-- Store a secret
+SELECT vault.create_secret('my-secret-value', 'MY_SECRET_NAME');
+
+-- Use in pg_cron / Edge Function
+SELECT decrypted_secret
+FROM vault.decrypted_secrets
+WHERE name = 'MY_SECRET_NAME';
+```
+
+**Required in Vault:**
+- `github_app_id` - GitHub App ID
+- `github_app_private_key_pem` - GitHub App private key
+- `project_url` - Supabase project URL
+- `anon_key` - Supabase anon key (for cron → Edge Function calls)
+
+### Orchestration
+
+Supabase is the **orchestration plane**:
+
+| Task Type | Implementation |
+|-----------|----------------|
+| Scheduled jobs | `pg_cron` → Edge Function |
+| Event-driven | Database webhooks → Edge Function |
+| AI agent tasks | Edge Function with `ops.*` logging |
+| External integrations | Edge Function → External API |
+
+**Odoo is NOT:**
+- A job scheduler (use `pg_cron`)
+- A secret store (use Vault)
+- An orchestration engine
+
+### Conflict Resolution
+
+| Scenario | Winner |
+|----------|--------|
+| Business data conflict | Odoo (canonical) |
+| Analytics data conflict | Supabase (derived) |
+| Secret storage | Always Vault |
+| Job scheduling | Always pg_cron |
+| AI outputs | Always Supabase |
+
+### Governance Enforcement
+
+The `repo-auditor` Edge Function enforces these boundaries via automated checks:
+
+| Rule ID | Severity | Description |
+|---------|----------|-------------|
+| `governance.odoo.direct.write` | Critical | Direct Odoo DB writes detected |
+| `governance.business.data.in.supabase` | High | Business data in Supabase tables |
+| `governance.secrets.not.in.vault` | High | Secrets outside Vault |
+| `governance.scheduler.in.odoo` | Medium | Scheduler logic in Odoo |
+| `governance.vault.not.used` | Medium | Vault not used for secrets |
+| `governance.architecture.missing` | Medium | Missing architecture docs |
+| `secrets.env.committed` | Critical | .env file committed |
+
+See [docs/GOVERNANCE.md](../docs/GOVERNANCE.md) for full governance documentation.
+See [docs/COPILOT_RULES.md](../docs/COPILOT_RULES.md) for quick reference rules.

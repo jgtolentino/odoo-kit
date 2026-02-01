@@ -10,10 +10,61 @@ permissions:
   pull-requests: write
 
 jobs:
+  domain-policy:
+    name: Domain Policy Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for forbidden .net domain
+        run: |
+          set -euo pipefail
+
+          echo "Checking for insightpulseai.net references..."
+
+          # Use grep since rg may not be installed
+          if grep -rn --include="*" \
+             --exclude-dir=".git" \
+             --exclude-dir="node_modules" \
+             --exclude-dir=".venv" \
+             --exclude-dir="venv" \
+             --exclude-dir="dist" \
+             --exclude-dir="build" \
+             --exclude-dir=".next" \
+             --exclude-dir="__pycache__" \
+             "insightpulseai\.net" . 2>/dev/null; then
+            echo ""
+            echo "::error::Found forbidden domain 'insightpulseai.net' in codebase"
+            echo "All references must use 'insightpulseai.com'"
+            echo ""
+            echo "Fix with:"
+            echo "  find . -type f -not -path '*/.git/*' -print0 | xargs -0 perl -pi -e 's/insightpulseai\\.net/insightpulseai.com/g'"
+            exit 1
+          fi
+
+          echo "Domain policy check passed (no .net references found)"
+
+      - name: Validate canonical domains in manifest
+        run: |
+          if [ -f config/integrations/integration_manifest.yaml ]; then
+            echo "Checking integration manifest..."
+
+            # Verify mailgun_domain is subdomain
+            if grep -q "mailgun_domain:.*insightpulseai.com" config/integrations/integration_manifest.yaml; then
+              if ! grep -q "mailgun_domain:.*mg\.insightpulseai.com" config/integrations/integration_manifest.yaml; then
+                echo "::warning::MAILGUN_DOMAIN should be mg.insightpulseai.com (subdomain)"
+              fi
+            fi
+
+            echo "Manifest check complete"
+          fi
+
   secrets-scan:
     name: Secrets Scan
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    needs: [domain-policy]
     steps:
       - uses: actions/checkout@v4
         with:

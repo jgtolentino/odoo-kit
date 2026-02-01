@@ -22,11 +22,53 @@ env:
   SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
 jobs:
+  integration-audit:
+    name: Integration Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event.inputs.action == 'full' || github.event_name == 'schedule'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dnsutils
+        run: sudo apt-get update && sudo apt-get install -y dnsutils
+
+      - name: Run integration audit
+        env:
+          ROOT_DOMAIN: insightpulseai.com
+          EXPECTED_MG_DOMAIN: mg.insightpulseai.com
+          MAILGUN_DOMAIN: ${{ secrets.MAILGUN_DOMAIN }}
+          MAILGUN_API_KEY: ${{ secrets.MAILGUN_API_KEY }}
+        run: |
+          chmod +x scripts/audit/run_integration_audit.sh
+          ./scripts/audit/run_integration_audit.sh 2>&1 | tee /tmp/audit.log || true
+
+          # Parse results
+          if grep -q "FAIL.*policy\|FAIL.*domain" /tmp/audit.log; then
+            echo "::error::Domain policy check failed"
+            exit 1
+          fi
+
+      - name: Upload audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-results
+          path: .audit/results/
+          retention-days: 30
+
   health-check:
     name: System Health Check
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event.inputs.action == 'full' || github.event.inputs.action == 'health-check' || github.event_name == 'schedule'
+    needs: [integration-audit]
+    if: always() && (github.event.inputs.action == 'full' || github.event.inputs.action == 'health-check' || github.event_name == 'schedule')
 
     steps:
       - name: Run health check
@@ -196,7 +238,7 @@ jobs:
   summary:
     name: Generate Nightly Summary
     runs-on: ubuntu-latest
-    needs: [health-check, cleanup-expired-claims, plane-sync, stale-data-audit, drift-detection, process-pending-jobs]
+    needs: [integration-audit, health-check, cleanup-expired-claims, plane-sync, stale-data-audit, drift-detection, process-pending-jobs]
     if: always()
 
     steps:
@@ -209,6 +251,7 @@ jobs:
           echo "### Job Status" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Audit | ${{ needs.integration-audit.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Health Check | ${{ needs.health-check.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Cleanup | ${{ needs.cleanup-expired-claims.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Plane Sync | ${{ needs.plane-sync.result }} |" >> $GITHUB_STEP_SUMMARY

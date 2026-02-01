@@ -1,0 +1,228 @@
+{
+  "session": {
+    "date": "2026-02-01",
+    "type": "task_review",
+    "scope": "platform_consolidation"
+  },
+  "organization": {
+    "domain_policy": {
+      "canonical": "insightpulseai.com",
+      "deprecated": ["insightpulseai.net"],
+      "action": "migrate_all_references",
+      "rationale": "Consolidate on single .com domain for brand consistency, SSL certificate management, and DNS simplification."
+    }
+  },
+  "governance": {
+    "decision_log_required": true,
+    "change_approval": "documented_in_pr",
+    "rollback_plan": "required_for_production"
+  },
+  "repository_structure": {
+    "monorepo": "odoo-kit",
+    "packages": [
+      {
+        "path": "packages/platform-kit",
+        "purpose": "SDK + CLI for control plane operations"
+      },
+      {
+        "path": "packages/agent-core",
+        "purpose": "Shared agent infrastructure"
+      },
+      {
+        "path": "supabase/functions",
+        "purpose": "Edge Functions for sync and webhooks"
+      }
+    ],
+    "apps": [
+      {
+        "path": "apps/control-room",
+        "purpose": "Observability dashboard"
+      },
+      {
+        "path": "apps/web",
+        "purpose": "Main web application"
+      }
+    ]
+  },
+  "hosting": {
+    "strategy": "hybrid",
+    "providers": {
+      "digitalocean": {
+        "purpose": "Droplets for Odoo, self-hosted services",
+        "resources": [
+          {
+            "name": "odoo-erp-prod",
+            "type": "droplet",
+            "ip": "159.223.75.148",
+            "services": ["Odoo CE 19", "Mattermost", "n8n"]
+          },
+          {
+            "name": "ocr-service-droplet",
+            "type": "droplet",
+            "ip": "188.166.237.231",
+            "services": ["OCR Service", "Agent Service"]
+          }
+        ]
+      },
+      "supabase": {
+        "purpose": "PostgreSQL, Edge Functions, Auth, Storage",
+        "project_ref": "spdtwktxdalcfigzeqrz",
+        "features": ["PostgreSQL 15", "Edge Functions (Deno)", "Realtime", "Row Level Security"]
+      },
+      "vercel": {
+        "purpose": "Frontend hosting, preview deployments",
+        "features": ["Automatic previews", "Edge network", "Analytics"]
+      }
+    }
+  },
+  "control_plane": {
+    "database": {
+      "provider": "supabase",
+      "schema": "ops",
+      "tables": {
+        "sync_jobs": {
+          "purpose": "Track sync operations",
+          "columns": [
+            {"name": "id", "type": "uuid", "primary": true},
+            {"name": "source", "type": "text"},
+            {"name": "target", "type": "text"},
+            {"name": "status", "type": "text"},
+            {"name": "payload", "type": "jsonb"},
+            {"name": "created_at", "type": "timestamptz"},
+            {"name": "updated_at", "type": "timestamptz"}
+          ]
+        },
+        "sync_events": {
+          "purpose": "Audit log for sync activities",
+          "columns": [
+            {"name": "id", "type": "uuid", "primary": true},
+            {"name": "job_id", "type": "uuid", "references": "sync_jobs.id"},
+            {"name": "event_type", "type": "text"},
+            {"name": "details", "type": "jsonb"},
+            {"name": "created_at", "type": "timestamptz"}
+          ]
+        },
+        "id_map": {
+          "purpose": "Cross-system entity mapping",
+          "columns": [
+            {"name": "id", "type": "uuid", "primary": true},
+            {"name": "source_system", "type": "text"},
+            {"name": "source_id", "type": "text"},
+            {"name": "target_system", "type": "text"},
+            {"name": "target_id", "type": "text"},
+            {"name": "entity_type", "type": "text"},
+            {"name": "created_at", "type": "timestamptz"}
+          ]
+        }
+      }
+    }
+  },
+  "integrations": {
+    "plane_odoo": {
+      "direction": "bidirectional",
+      "sync_entities": [
+        {
+          "source": "plane.issue",
+          "target": "odoo.project.task",
+          "mapping": {
+            "title": "name",
+            "description": "description",
+            "state": "stage_id",
+            "priority": "priority"
+          }
+        },
+        {
+          "source": "plane.project",
+          "target": "odoo.project.project",
+          "mapping": {
+            "name": "name",
+            "description": "description"
+          }
+        }
+      ],
+      "webhook_endpoints": {
+        "plane_to_odoo": "supabase/functions/plane-sync?source=plane",
+        "odoo_to_plane": "supabase/functions/plane-sync?source=odoo"
+      },
+      "authentication": {
+        "plane": "API_KEY",
+        "odoo": "XMLRPC_BASIC"
+      }
+    },
+    "platform_kit": {
+      "direction": "one_way",
+      "source": "platform_kit_events",
+      "target": "plane_issues",
+      "sync_types": ["failures", "alerts", "drift_detections"]
+    }
+  },
+  "analytics_replica": {
+    "strategy": "logical_replication",
+    "source": {
+      "database": "odoo_production",
+      "tables": [
+        "account_move",
+        "account_move_line",
+        "project_task",
+        "project_project",
+        "hr_expense"
+      ]
+    },
+    "target": {
+      "database": "supabase",
+      "schema": "analytics"
+    },
+    "frequency": "near_realtime",
+    "lag_tolerance": "5_minutes"
+  },
+  "security": {
+    "rls_enforcement": "all_public_tables",
+    "secret_management": {
+      "local": "macos_keychain",
+      "remote": "supabase_vault"
+    },
+    "webhook_verification": "hmac_sha256",
+    "audit_logging": "required"
+  },
+  "cost_optimization": {
+    "principles": [
+      "Self-hosted where practical",
+      "Use free tiers maximally",
+      "Avoid vendor lock-in",
+      "Build vs buy: build when ROI > 6 months"
+    ],
+    "current_monthly_estimate": {
+      "digitalocean": 50,
+      "supabase": 25,
+      "vercel": 0,
+      "total": 75,
+      "currency": "USD"
+    }
+  },
+  "deliverables": {
+    "status": {
+      "merge_conflict_resolution": {
+        "file": "supabase/functions/plane-sync/index.ts",
+        "status": "completed"
+      },
+      "desired_end_state_spec": {
+        "files": [
+          "spec/session-2026-02-01/desired_end_state.yaml",
+          "spec/session-2026-02-01/desired_end_state.json"
+        ],
+        "status": "in_progress"
+      },
+      "ci_checks": {
+        "total": 10,
+        "failing": 10,
+        "status": "pending_review"
+      }
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "created": "2026-02-01",
+    "author": "claude-code",
+    "last_updated": "2026-02-01"
+  }
+}

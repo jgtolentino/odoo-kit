@@ -159,9 +159,73 @@ If instructions violate this model:
 
 ---
 
+## 8. Production Hardening Checklist
+
+### Platform (Supabase)
+
+| Item | Priority | Status |
+|------|----------|--------|
+| RLS enabled on all `ops.*` tables | Critical | |
+| RLS enabled on all `advisor.*` tables | Critical | |
+| RLS enabled on all `mirror.*` tables | Critical | |
+| JWT role claims enforced in Edge Functions | Critical | |
+| Audit logs (`ops.events`) are append-only | High | |
+| Secrets stored in Supabase Vault only | Critical | |
+| Service role key never exposed to frontend | Critical | |
+| Database connection pooling configured | Medium | |
+| Query timeouts set (statement_timeout) | Medium | |
+
+### Odoo (DigitalOcean)
+
+| Item | Priority | Status |
+|------|----------|--------|
+| Database accessible only via private network | Critical | |
+| Reverse proxy (nginx) with TLS termination | Critical | |
+| Nightly backups verified (test restore) | High | |
+| Worker limits configured (`--workers`, `--max-cron-threads`) | High | |
+| Fail2ban or equivalent for SSH | Medium | |
+| API endpoints rate-limited | Medium | |
+| HMAC verification enabled on all `/ipai/` routes | Critical | |
+
+### CI/CD (GitHub Actions)
+
+| Item | Priority | Status |
+|------|----------|--------|
+| Preview environments on every PR (Vercel) | High | |
+| Staging environment validated before production | Critical | |
+| Promote via git tags only | Medium | |
+| Evidence pack per deploy (logs, health checks) | High | |
+| Secrets in GitHub Secrets, not in code | Critical | |
+| Dependabot enabled for security updates | Medium | |
+
+### Vercel
+
+| Item | Priority | Status |
+|------|----------|--------|
+| Security headers enabled (nosniff, DENY framing) | High | |
+| Health gate after deployment (`/api/health`) | Critical | |
+| Environment variables isolated per environment | High | |
+| No direct database access from frontend | Critical | |
+| Edge Functions verified with test cases | Medium | |
+
+### Secrets Management
+
+| Item | Priority | Status |
+|------|----------|--------|
+| No secrets in git history | Critical | |
+| `.env*` files in `.gitignore` | Critical | |
+| All Edge Functions fetch from Vault | High | |
+| Rotation schedule documented | Medium | |
+| Break-glass procedure documented | High | |
+
+---
+
 ## Related Documentation
 
 - [supabase/ARCHITECTURE.md](../supabase/ARCHITECTURE.md) - Technical architecture details
+- [docs/CANONICAL_ARCHITECTURE.md](./CANONICAL_ARCHITECTURE.md) - Combined platform architecture
+- [docs/PHASE1_CHECKLIST.md](./PHASE1_CHECKLIST.md) - Implementation checklist
 - [docs/CI_SUPABASE_SECRETS.md](./CI_SUPABASE_SECRETS.md) - CI/CD secrets setup
+- [docs/COPILOT_RULES.md](./COPILOT_RULES.md) - Quick reference for AI agents
 - [Supabase Vault Docs](https://supabase.com/docs/guides/database/vault)
 - [Supabase Scheduling Docs](https://supabase.com/docs/guides/functions/schedule-functions)

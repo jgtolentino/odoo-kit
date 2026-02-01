@@ -18,7 +18,7 @@
             <field name="smtp_host">smtp.mailgun.org</field>
             <field name="smtp_port">587</field>
             <field name="smtp_encryption">starttls</field>
-            <field name="smtp_user">postmaster@mg.insightpulseai.com</field>
+            <field name="smtp_user">no-reply@mg.insightpulseai.com</field>
             <!-- Password set via environment variable or manual config -->
             <field name="smtp_pass"></field>
             <field name="sequence">1</field>

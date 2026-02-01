@@ -1,31 +1,47 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
 import SupabaseManagerDialog from '@/components/supabase-manager'
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardHeader, 
-  CardTitle 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
 } from '@/components/ui/card'
-import { 
-  Database, 
-  HardDrive, 
-  Shield, 
-  Users, 
-  KeyRound, 
-  ScrollText, 
+import {
+  AlertCircle,
+  Database,
+  HardDrive,
+  Shield,
+  Users,
+  KeyRound,
+  ScrollText,
   Lightbulb,
   Zap
 } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { getProjectRefConfig } from '@/lib/supabase-config'
 
 export default function HomePage() {
   const [open, setOpen] = useState(false)
   const isMobile = useMobile()
-  const projectRef = 'demo-project' // Replace with your actual project ref
+
+  // Resolve project ref from URL or environment
+  const [projectConfig, setProjectConfig] = useState<ReturnType<typeof getProjectRefConfig>>({
+    projectRef: null,
+    isValid: false,
+    source: 'none',
+  })
+
+  useEffect(() => {
+    setProjectConfig(getProjectRefConfig())
+  }, [])
+
+  const projectRef = projectConfig.projectRef || ''
+  const hasValidProject = projectConfig.isValid
 
   const features = [
     {
@@ -74,7 +90,12 @@ export default function HomePage() {
             <Zap className="h-6 w-6 text-primary" />
             <h1 className="text-xl font-bold">Supabase Platform Manager</h1>
           </div>
-          <Button onClick={() => setOpen(true)} size="lg" className="gap-2">
+          <Button
+            onClick={() => setOpen(true)}
+            size="lg"
+            className="gap-2"
+            disabled={!hasValidProject}
+          >
             <span>Open Manager</span>
             <Zap className="h-4 w-4" />
           </Button>
@@ -83,6 +104,24 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="container py-12">
+        {/* Configuration Error Alert */}
+        {!hasValidProject && (
+          <Alert variant="destructive" className="mb-8">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Configuration Required</AlertTitle>
+            <AlertDescription className="mt-2">
+              <p className="mb-2">{projectConfig.error}</p>
+              <p className="text-sm opacity-80">
+                To fix this, either:
+              </p>
+              <ul className="list-disc list-inside text-sm opacity-80 mt-1">
+                <li>Set <code className="bg-destructive/20 px-1 rounded">NEXT_PUBLIC_SUPABASE_PROJECT_REF</code> environment variable</li>
+                <li>Add <code className="bg-destructive/20 px-1 rounded">?ref=your_project_ref</code> to the URL</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <div className="mb-12 text-center">
           <h2 className="text-3xl font-bold tracking-tight sm:text-4xl mb-4">
             Manage Your Backend with Ease
@@ -90,7 +129,12 @@ export default function HomePage() {
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
             Access all your Supabase features in one unified interface. Manage database, authentication, storage, and more without leaving your app.
           </p>
-          <Button onClick={() => setOpen(true)} size="lg" variant="default">
+          <Button
+            onClick={() => setOpen(true)}
+            size="lg"
+            variant="default"
+            disabled={!hasValidProject}
+          >
             Get Started
           </Button>
         </div>
@@ -131,7 +175,12 @@ export default function HomePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            <Button onClick={() => setOpen(true)} size="lg" className="gap-2">
+            <Button
+              onClick={() => setOpen(true)}
+              size="lg"
+              className="gap-2"
+              disabled={!hasValidProject}
+            >
               Open Full Manager Interface
               <Zap className="h-4 w-4" />
             </Button>

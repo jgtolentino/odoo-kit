@@ -49,9 +49,19 @@ async function forwardToSupabaseAPI(request: Request, method: string, params: { 
     // Include body for methods that support it
     if (method !== 'GET' && method !== 'HEAD') {
       try {
-        const body = await request.text()
-        if (body) {
-          fetchOptions.body = body
+        // Handle multipart/form-data specially to preserve binary boundaries
+        // The /functions/deploy endpoint requires multipart/form-data
+        if (contentType?.includes('multipart/form-data')) {
+          // Use arrayBuffer to preserve binary data integrity
+          const buffer = await request.arrayBuffer()
+          if (buffer.byteLength > 0) {
+            fetchOptions.body = buffer
+          }
+        } else {
+          const body = await request.text()
+          if (body) {
+            fetchOptions.body = body
+          }
         }
       } catch (error) {
         // Handle cases where body is not readable

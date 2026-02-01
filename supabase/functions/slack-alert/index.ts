@@ -339,6 +339,77 @@ async function checkAndAlertFailedRuns(): Promise<number> {
 }
 
 /**
+ * Process a queue failure into an alert payload
+ */
+function processQueueFailurePayload(record: Record<string, unknown>): AlertPayload {
+  const attempt = record.attempt as number || 1
+  const maxAttempts = record.max_attempts as number || 3
+
+  return {
+    type: 'run_failed',
+    severity: attempt >= maxAttempts ? 'high' : 'medium',
+    title: `Queue Job Failed: ${record.job_name || record.job_type}`,
+    description: record.error_message as string,
+    resource: `queue/${record.job_type}`,
+    metadata: {
+      queue_id: record.id,
+      job_type: record.job_type,
+      attempt: attempt,
+      max_attempts: maxAttempts,
+      completed_at: record.completed_at,
+    },
+  }
+}
+
+/**
+ * Check for failed queue jobs and send alerts
+ */
+async function checkAndAlertQueueFailures(): Promise<number> {
+  const supabase = createServiceClient()
+
+  // Get failed queue jobs from the last hour that haven't been alerted
+  const { data: jobs, error } = await supabase
+    .from('ops.queue')
+    .select('*')
+    .eq('status', 'failed')
+    .gt('completed_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+    .is('metadata->alerted_at', null)
+
+  if (error) {
+    console.error('Error fetching failed queue jobs:', error)
+    // Table might not exist yet, return 0
+    return 0
+  }
+
+  let alertCount = 0
+
+  for (const job of jobs || []) {
+    const alert = processQueueFailurePayload(job)
+    const message = formatAlertMessage(alert)
+
+    try {
+      await sendToSlack(message)
+      alertCount++
+
+      // Mark as alerted
+      await supabase
+        .from('ops.queue')
+        .update({
+          metadata: {
+            ...(job.metadata || {}),
+            alerted_at: new Date().toISOString(),
+          },
+        })
+        .eq('id', job.id)
+    } catch (err) {
+      console.error(`Failed to send alert for queue job ${job.id}:`, err)
+    }
+  }
+
+  return alertCount
+}
+
+/**
  * Main handler
  */
 serve(async (req: Request): Promise<Response> => {
@@ -378,15 +449,24 @@ serve(async (req: Request): Promise<Response> => {
         break
       }
 
+      case 'check_queue': {
+        // Cron-triggered: check for failed queue jobs
+        const alertCount = await checkAndAlertQueueFailures()
+        result = { action, alerts_sent: alertCount }
+        break
+      }
+
       case 'check_all': {
         // Cron-triggered: check everything
         const findingAlerts = await checkAndAlertCriticalFindings()
         const failureAlerts = await checkAndAlertFailedRuns()
+        const queueAlerts = await checkAndAlertQueueFailures()
         result = {
           action,
           finding_alerts: findingAlerts,
           failure_alerts: failureAlerts,
-          total_alerts: findingAlerts + failureAlerts,
+          queue_alerts: queueAlerts,
+          total_alerts: findingAlerts + failureAlerts + queueAlerts,
         }
         break
       }

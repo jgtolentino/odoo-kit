@@ -10,11 +10,10 @@ session:
 organization:
   domain_policy:
     canonical: "insightpulseai.com"
-    deprecated:
-      - "insightpulseai.net"
-    action: "migrate_all_references"
+    deprecated: []  # All migrated to .com
+    action: "completed"
     rationale: |
-      Consolidate on single .com domain for brand consistency,
+      All services consolidated on single .com domain for brand consistency,
       SSL certificate management, and DNS simplification.
 
 governance:

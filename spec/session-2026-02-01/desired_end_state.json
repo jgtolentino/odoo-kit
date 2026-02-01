@@ -7,9 +7,9 @@
   "organization": {
     "domain_policy": {
       "canonical": "insightpulseai.com",
-      "deprecated": ["insightpulseai.net"],
-      "action": "migrate_all_references",
-      "rationale": "Consolidate on single .com domain for brand consistency, SSL certificate management, and DNS simplification."
+      "deprecated": [],
+      "action": "completed",
+      "rationale": "All services consolidated on single .com domain for brand consistency,\nSSL certificate management, and DNS simplification.\n"
     }
   },
   "governance": {
@@ -54,24 +54,40 @@
             "name": "odoo-erp-prod",
             "type": "droplet",
             "ip": "159.223.75.148",
-            "services": ["Odoo CE 19", "Mattermost", "n8n"]
+            "services": [
+              "Odoo CE 19",
+              "Mattermost",
+              "n8n"
+            ]
           },
           {
             "name": "ocr-service-droplet",
             "type": "droplet",
             "ip": "188.166.237.231",
-            "services": ["OCR Service", "Agent Service"]
+            "services": [
+              "OCR Service",
+              "Agent Service"
+            ]
           }
         ]
       },
       "supabase": {
         "purpose": "PostgreSQL, Edge Functions, Auth, Storage",
         "project_ref": "spdtwktxdalcfigzeqrz",
-        "features": ["PostgreSQL 15", "Edge Functions (Deno)", "Realtime", "Row Level Security"]
+        "features": [
+          "PostgreSQL 15",
+          "Edge Functions (Deno)",
+          "Realtime",
+          "Row Level Security"
+        ]
       },
       "vercel": {
         "purpose": "Frontend hosting, preview deployments",
-        "features": ["Automatic previews", "Edge network", "Analytics"]
+        "features": [
+          "Automatic previews",
+          "Edge network",
+          "Analytics"
+        ]
       }
     }
   },
@@ -83,35 +99,96 @@
         "sync_jobs": {
           "purpose": "Track sync operations",
           "columns": [
-            {"name": "id", "type": "uuid", "primary": true},
-            {"name": "source", "type": "text"},
-            {"name": "target", "type": "text"},
-            {"name": "status", "type": "text"},
-            {"name": "payload", "type": "jsonb"},
-            {"name": "created_at", "type": "timestamptz"},
-            {"name": "updated_at", "type": "timestamptz"}
+            {
+              "name": "id",
+              "type": "uuid",
+              "primary": true
+            },
+            {
+              "name": "source",
+              "type": "text"
+            },
+            {
+              "name": "target",
+              "type": "text"
+            },
+            {
+              "name": "status",
+              "type": "text"
+            },
+            {
+              "name": "payload",
+              "type": "jsonb"
+            },
+            {
+              "name": "created_at",
+              "type": "timestamptz"
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamptz"
+            }
           ]
         },
         "sync_events": {
           "purpose": "Audit log for sync activities",
           "columns": [
-            {"name": "id", "type": "uuid", "primary": true},
-            {"name": "job_id", "type": "uuid", "references": "sync_jobs.id"},
-            {"name": "event_type", "type": "text"},
-            {"name": "details", "type": "jsonb"},
-            {"name": "created_at", "type": "timestamptz"}
+            {
+              "name": "id",
+              "type": "uuid",
+              "primary": true
+            },
+            {
+              "name": "job_id",
+              "type": "uuid",
+              "references": "sync_jobs.id"
+            },
+            {
+              "name": "event_type",
+              "type": "text"
+            },
+            {
+              "name": "details",
+              "type": "jsonb"
+            },
+            {
+              "name": "created_at",
+              "type": "timestamptz"
+            }
           ]
         },
         "id_map": {
           "purpose": "Cross-system entity mapping",
           "columns": [
-            {"name": "id", "type": "uuid", "primary": true},
-            {"name": "source_system", "type": "text"},
-            {"name": "source_id", "type": "text"},
-            {"name": "target_system", "type": "text"},
-            {"name": "target_id", "type": "text"},
-            {"name": "entity_type", "type": "text"},
-            {"name": "created_at", "type": "timestamptz"}
+            {
+              "name": "id",
+              "type": "uuid",
+              "primary": true
+            },
+            {
+              "name": "source_system",
+              "type": "text"
+            },
+            {
+              "name": "source_id",
+              "type": "text"
+            },
+            {
+              "name": "target_system",
+              "type": "text"
+            },
+            {
+              "name": "target_id",
+              "type": "text"
+            },
+            {
+              "name": "entity_type",
+              "type": "text"
+            },
+            {
+              "name": "created_at",
+              "type": "timestamptz"
+            }
           ]
         }
       }
@@ -153,7 +230,11 @@
       "direction": "one_way",
       "source": "platform_kit_events",
       "target": "plane_issues",
-      "sync_types": ["failures", "alerts", "drift_detections"]
+      "sync_types": [
+        "failures",
+        "alerts",
+        "drift_detections"
+      ]
     }
   },
   "analytics_replica": {

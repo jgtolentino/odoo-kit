@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "canonical_domain": "insightpulseai.com",
+  "hosting": {
+    "vercel": {
+      "purpose": "public web + platform UI (Platform Kit) + lightweight APIs"
+    },
+    "supabase": {
+      "purpose": "auth + storage + ops control plane (queue/events/artifacts) + edge executor"
+    },
+    "digitalocean": {
+      "purpose": "stateful services via docker compose + reverse proxy + managed postgres",
+      "components": [
+        "plane",
+        "odoo",
+        "superset"
+      ]
+    }
+  },
+  "services": {
+    "reverse_proxy": {
+      "type": "caddy",
+      "public_routes": [
+        {
+          "host": "app.insightpulseai.com",
+          "target": "vercel"
+        },
+        {
+          "host": "plane.insightpulseai.com",
+          "target": "do:plane"
+        },
+        {
+          "host": "erp.insightpulseai.com",
+          "target": "do:odoo"
+        },
+        {
+          "host": "superset.insightpulseai.com",
+          "target": "do:superset"
+        }
+      ]
+    },
+    "plane": {
+      "deploy": "docker-compose on DO",
+      "db": "do-managed-postgres or internal postgres"
+    },
+    "odoo": {
+      "deploy": "docker-compose on DO",
+      "db": "do-managed-postgres"
+    },
+    "superset": {
+      "deploy": "docker-compose on DO",
+      "db": "do-managed-postgres (metadata)",
+      "cache": "redis"
+    },
+    "platform_ui": {
+      "deploy": "vercel",
+      "features": [
+        "supabase platform kit embedded manager",
+        "ops job viewer (sync_jobs, sync_events, artifacts)",
+        "tenant/project mapping"
+      ]
+    },
+    "shelf_nu": {
+      "mode": "consumed",
+      "strategy": "docker image or pinned fork only if patched"
+    },
+    "atomic_crm": {
+      "mode": "consumed",
+      "strategy": "template or pinned fork only if heavily customized"
+    }
+  },
+  "control_plane": {
+    "supabase_ops_schema": {
+      "tables": [
+        "ops.sync_jobs",
+        "ops.sync_events",
+        "ops.id_map",
+        "ops.artifacts",
+        "ops.secrets_refs"
+      ],
+      "worker": {
+        "type": "supabase edge function",
+        "behavior": [
+          "claim queued jobs",
+          "execute deterministic phases",
+          "write events + artifacts",
+          "update status"
+        ]
+      }
+    },
+    "integrations": [
+      {
+        "name": "plane_to_odoo",
+        "direction": "bi-directional",
+        "mechanism": "ops queue + webhooks + polling fallback"
+      },
+      {
+        "name": "odoo_to_superset",
+        "direction": "one-way (analytics)",
+        "mechanism": "ETL or logical replication to analytics schema"
+      }
+    ]
+  }
+}

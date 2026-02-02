@@ -57,11 +57,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'projectRef is required.' }, { status: 400 })
     }
 
-    // Implement your permission check here (e.g. check if the user is a member of the project)
-    // In this example, everyone can access all projects
-    const userHasPermissionForProject = Boolean(projectRef)
+    // Security: Only allow requests to the configured project
+    const allowedProjectRef = process.env.SUPABASE_PROJECT_REF || process.env.NEXT_PUBLIC_SUPABASE_PROJECT_REF
 
-    if (!userHasPermissionForProject) {
+    if (!allowedProjectRef) {
+      console.error('SUPABASE_PROJECT_REF is not configured.')
+      return NextResponse.json(
+        { message: 'Server configuration error: Project reference not configured.' },
+        { status: 500 }
+      )
+    }
+
+    if (projectRef !== allowedProjectRef) {
+      console.warn(`Blocked AI SQL request to unauthorized project: ${projectRef}`)
       return NextResponse.json(
         { message: 'You do not have permission to access this project.' },
         { status: 403 }

@@ -16,13 +16,25 @@ async function forwardToSupabaseAPI(request: Request, method: string, params: { 
   url.port = '443'
   url.pathname = apiPath
 
+  // Extract project ref from path (e.g., /v1/projects/{ref}/...)
   const projectRef = path[2]
 
-  // Implement your permission check here (e.g. check if the user is a member of the project)
-  // In this example, everyone can access all projects
-  const userHasPermissionForProject = Boolean(projectRef)
+  // Security: Only allow requests to the configured project
+  // This prevents the proxy from being used to access arbitrary Supabase projects
+  const allowedProjectRef = process.env.SUPABASE_PROJECT_REF || process.env.NEXT_PUBLIC_SUPABASE_PROJECT_REF
 
-  if (!userHasPermissionForProject) {
+  if (!allowedProjectRef) {
+    console.error('SUPABASE_PROJECT_REF is not configured. API proxy is disabled for security.')
+    return NextResponse.json(
+      { message: 'Server configuration error: Project reference not configured.' },
+      { status: 500 }
+    )
+  }
+
+  // Validate the requested project ref matches the allowed one
+  const isProjectEndpoint = path[0] === 'v1' && path[1] === 'projects' && projectRef
+  if (isProjectEndpoint && projectRef !== allowedProjectRef) {
+    console.warn(`Blocked proxy request to unauthorized project: ${projectRef}`)
     return NextResponse.json(
       { message: 'You do not have permission to access this project.' },
       { status: 403 }

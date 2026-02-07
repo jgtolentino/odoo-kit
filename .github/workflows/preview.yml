@@ -22,7 +22,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v1
@@ -154,7 +154,7 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Comment teardown note
         uses: actions/github-script@v7
